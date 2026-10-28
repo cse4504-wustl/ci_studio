@@ -2,13 +2,9 @@
 
 Track your runs, see weekly totals, and find your personal bests.
 
-**This code has 4 bugs in it.** Two of them can be caught by unit tests.
-The other two will only show up in integration tests. Your job in the
-studio is to write tests that find all four.
-
 ## Setup
 
-Requires Python 3.10+. Run these from the `running_log` folder.
+Requires Python 3.10+. Run these from the root folder.
 
 **1. Create a virtual environment** (once). It keeps this project's packages
 separate from everything else on your computer.
@@ -79,59 +75,257 @@ Notes (optional, e.g. easy recovery run; press Enter to skip): easy
 
 If an answer doesn't match the format, the app asks again.
 
-## Architecture
+## Add CI Pipeline
 
-The code follows clean architecture. Two pictures help: who **imports** whom,
-and who **calls** whom while the app runs.
+In this studio you add a GitHub Actions pipeline that runs the tests on every
+push to `main` and every pull request. Then you break the code four ways and
+watch CI catch each one.
 
-**Who imports whom.** Every arrow points inward, toward the domain:
+Before you start, make sure the Setup steps above work: `python -m pytest`
+should end with **6 passed, 8 skipped**. Keep your answers to the
+**Answer in your notes** questions in a new file, `CI_NOTES.md`.
+
+### Part 1: Get a green run
+
+Goal: every push to `main` and every pull request runs the test suite on
+GitHub's build server.
+
+**1.** Create the file `.github/workflows/ci.yml` (the folder names must match
+exactly) with this content:
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]        # every push to main
+  pull_request:
+    branches: [main]        # every PR that targets main
+  workflow_dispatch:        # "Run workflow" button on the Actions tab
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m pytest -v
+```
+
+**2.** Commit and push it:
 
 ```
-                    cli.py
-           menu, keyboard input, wiring
-              │                  │
-              ▼                  ▼
-          adapters/          use_cases/
-              │                  │
-              └───────┬──────────┘
-                      ▼
-                   domain/
+git add .github
+git commit -m "Add CI workflow"
+git push
 ```
 
-`adapters/` and `use_cases/` sit side by side: neither imports the other.
+**3.** Open your repo's **Actions** tab on GitHub. Click the run, then the
+**test** job, then expand **Run tests**. Find the line that says
+6 passed, 8 skipped.
 
-| Layer | Files | What's in it |
-|---|---|---|
-| `domain/` | `run.py`, `records.py` | `Run` and its rules; weekly summaries and personal bests. No I/O. |
-| `use_cases/` | `training.py`, `ports.py` | `LogRun`, `ListRuns`, `WeeklySummary`, `PersonalBests`; the `RunRepository` interface they need |
-| `adapters/` | `csv_repository.py`, `run_serializer.py`, `presenter.py` | Storing runs in a CSV file; formatting text for the screen |
-| `cli.py` | | The menu. Creates a `CsvRunRepository` and hands it to the use cases |
+**4.** Go to the commit list on the **Code** tab. Your commit now has a green
+check next to it.
 
-**Who calls whom.** When you log a run:
+**5.** Click **Run workflow** on the Actions tab to start a run by hand.
+
+Compare this file with the one from lecture. It needs no `PYTHONPATH` line,
+because this repo's `pytest.ini` already sets `pythonpath = .`. YAML is picky
+about indentation: if the Actions tab shows a syntax error instead of a run,
+check your spaces.
+
+> **Answer in your notes:** The CI server knows nothing about your laptop.
+> Which step gives it a copy of your code, and which step gives it pytest?
+
+### Part 2: Break it in a pull request
+
+Goal: see a regression stopped at the pull request, before it reaches `main`.
+
+**1.** Make a branch:
 
 ```
-cli.log_run ──► LogRun.execute ──► repo.add(run) ──► CsvRunRepository.add ──► runs.csv
+git switch -c break-pace
 ```
 
-At runtime the use case *does* call into the adapter, but it never names it.
-`LogRun` only knows it has "some `RunRepository`" (the interface in
-`use_cases/ports.py`). `cli.py` decides which one to hand it: a
-`CsvRunRepository` in the app, or `tests/fakes.py`'s `InMemoryRunRepository`
-in unit tests, so no files are touched. That's why you can unit test a use
-case without the file system, and why you need integration tests to check
-that it works with the real one.
+**2.** In `runlog/domain/run.py`, "refactor" `pace_s_per_km` so the division is
+upside down:
 
-## Testing
+```python
+        return self.distance_km / self.duration_s
+```
 
-- `tests/test_example.py` shows a domain unit test and a use-case unit test. Copy its style.
-- `tests/test_run_validation.py` (unit) and `tests/test_use_cases_with_csv.py` (integration) are **guided exercises**.
-  Tests marked `pytest.skip("TODO ...")` are yours to finish; that's why they show as "skipped".
-- For the bugs you hunt on your own, create new files: `tests/test_<something>.py`.
-- **Unit tests**: domain, use cases (with the fake repository), serializer, presenter. No files.
-- **Integration tests**: the use cases running on the real `CsvRunRepository` with a real file
-  (e.g. log a run with `LogRun`, then read it back with `ListRuns` through a new repository),
-  and optionally the menu end to end.
-  Use pytest's `tmp_path` fixture for a throwaway folder and `capsys` to capture printed output.
-  To "type" into the menu, pass `scripted_input(...)` from `tests/fakes.py` as `input_fn`;
-  each argument is one answer, in order. When the answers run out, the menu exits.
+**3.** Pretend you forgot to run the tests. Commit, then push the branch:
 
+```
+git push -u origin break-pace
+```
+
+**4.** On GitHub, open a pull request from `break-pace` into `main`. Watch the
+check at the bottom of the PR go from a yellow dot to a red X.
+
+**5.** Click **Details** next to the failed check. Find the name of the failing
+test and the line showing the value it got versus the value it expected.
+
+**6.** Make CI a gate. Go to **Settings → Rules → Rulesets → New ruleset →
+New branch ruleset**. Name it `main`, set **Enforcement status** to Active, and
+under **Target branches** add the default branch. Tick **Require status checks
+to pass**, click **Add checks**, and pick `test`. Save.
+
+**7.** Reload the PR. GitHub now refuses to merge it.
+
+**8.** Fix it on the same branch: undo the change, commit, and push. The PR's
+check re-runs on its own and turns green. Merge the PR.
+
+From now on `main` is protected, so every change goes through a branch and a
+pull request. After merging, update your local copy before starting the next
+branch:
+
+```
+git switch main
+git pull
+```
+
+> **Answer in your notes:** Which test caught the bug, and what value did it
+> get? Was that test written to catch this exact mistake?
+
+### Part 3: Fix a real bug, test first
+
+Goal: use the red-to-green cycle to fix one of the bugs from the testing
+studio, so it can never quietly come back.
+
+**1.** Make a branch:
+
+```
+git switch -c fix-zero-distance
+```
+
+**2.** In `tests/test_run_validation.py`, finish `test_zero_distance_is_rejected`
+(delete its `pytest.skip` line):
+
+```python
+def test_zero_distance_is_rejected():
+    with pytest.raises(ValueError):
+        Run(run_date=A_DAY, distance_km=0.0, duration_s=1500)
+```
+
+**3.** Commit and push **only the test**, then open a pull request. CI goes red.
+This time the red is good news: it is evidence of a bug in the code, not in
+your change.
+
+**4.** Now fix the code. In `runlog/domain/run.py`, the docstring says distance
+"must be greater than 0". Make `__post_init__` agree with it.
+
+**5.** Run `python -m pytest` locally first. Expect **7 passed, 7 skipped**.
+Commit, push to the same branch, and watch the PR turn green. Merge it.
+
+> **Answer in your notes:** Why push the failing test before the fix, instead
+> of both in one commit? What does this test protect you from later?
+
+### Part 4: "Works on my machine"
+
+Goal: see CI catch a mistake your own laptop can't, because your laptop has a
+file the repo doesn't.
+
+**1.** Make a branch (from an up-to-date `main`):
+
+```
+git switch -c add-miles
+```
+
+**2.** Create `runlog/domain/units.py`:
+
+```python
+"""Unit conversions."""
+KM_PER_MILE = 1.609344
+
+
+def km_to_miles(km: float) -> float:
+    return km / KM_PER_MILE
+```
+
+**3.** Create `tests/test_units.py`:
+
+```python
+from runlog.domain.units import km_to_miles
+
+
+def test_a_5k_is_about_3_1_miles():
+    assert round(km_to_miles(5.0), 1) == 3.1
+```
+
+**4.** Run `python -m pytest` locally. Everything passes: **8 passed, 7 skipped**.
+
+**5.** Now make the classic mistake. Stage **only the test** (not `git add .`):
+
+```
+git add tests/test_units.py
+git commit -m "Add miles conversion"
+git push -u origin add-miles
+```
+
+Then open a pull request.
+
+**6.** CI goes red with `ModuleNotFoundError: No module named 'runlog.domain.units'`.
+Your laptop still says everything passes. Run `git status` to see why.
+
+**7.** Add and commit `units.py`, push, and watch the PR turn green. Merge it.
+
+> **Answer in your notes:** Name one other thing that could make tests pass on
+> your laptop but fail on the build server. (Hint: what if you had
+> `pip install`ed a package that isn't in `requirements.txt`?)
+
+### Stretch goals
+
+Do these in any order, each on its own branch and pull request.
+
+- **Save a test report.** Install `pytest-html` in the workflow, run pytest
+  with `--html=test-report.html --self-contained-html`, and add the upload step
+  below. Then make a test fail on purpose and check whether the report still
+  uploads. Without `if: always()`, GitHub skips every step after the first
+  failure.
+
+  ```yaml
+        - name: Upload test report
+          if: always()        # upload even when the tests failed
+          uses: actions/upload-artifact@v7
+          with:
+            name: test-report
+            path: test-report.html
+  ```
+
+- **Test on several Python versions.** Add a matrix so one push runs three
+  jobs side by side. Under `test:`, add the lines below, then change
+  `python-version` to `${{ matrix.python-version }}`.
+
+  ```yaml
+      strategy:
+        fail-fast: false
+        matrix:
+          python-version: ["3.10", "3.12", "3.13"]
+  ```
+
+- **Add a status badge** to the top of this README:
+  `![CI](https://github.com/<owner>/<repo>/actions/workflows/ci.yml/badge.svg)`,
+  with your repo's owner and name filled in.
+- **Fix another bug** from the testing studio the same way as Part 3: failing
+  test first, then the fix.
+
+### Before you're done
+
+- [ ] Your **Actions** tab shows at least one red run and one green run.
+- [ ] You have three merged pull requests (Parts 2–4), each showing a red
+      check followed by a green one.
+- [ ] `CI_NOTES.md`, with your answers to the four **Answer in your notes**
+      questions, is merged into `main` through one more pull request.
