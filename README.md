@@ -82,8 +82,9 @@ push to `main` and every pull request. Then you break the code four ways and
 watch CI catch each one.
 
 Before you start, make sure the Setup steps above work: `python -m pytest`
-should end with **6 passed, 8 skipped**. Keep your answers to the
-**Answer in your notes** questions in a new file, `CI_NOTES.md`.
+should end with **6 passed, 8 skipped**. 
+
+Record your answers somewhere you can later access; you will need to submit these answers on Canvas.
 
 ### Part 1: Get a green run
 
@@ -321,11 +322,3 @@ Do these in any order, each on its own branch and pull request.
   with your repo's owner and name filled in.
 - **Fix another bug** from the testing studio the same way as Part 3: failing
   test first, then the fix.
-
-### Before you're done
-
-- [ ] Your **Actions** tab shows at least one red run and one green run.
-- [ ] You have three merged pull requests (Parts 2–4), each showing a red
-      check followed by a green one.
-- [ ] `CI_NOTES.md`, with your answers to the four **Answer in your notes**
-      questions, is merged into `main` through one more pull request.
