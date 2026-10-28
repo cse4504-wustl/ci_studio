@@ -287,7 +287,7 @@ Your laptop still says everything passes. Run `git status` to see why.
 > your laptop but fail on the build server. (Hint: what if you had
 > `pip install`ed a package that isn't in `requirements.txt`?)
 
-### Stretch goals
+### Done early? Try these
 
 Do these in any order, each on its own branch and pull request.
 
