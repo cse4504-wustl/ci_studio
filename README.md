@@ -147,7 +147,7 @@ because this repo's `pytest.ini` already sets `pythonpath = .`. YAML is picky
 about indentation: if the Actions tab shows a syntax error instead of a run,
 check your spaces.
 
-> **Answer in your notes:** The CI server knows nothing about your laptop.
+> **Studio Question 1:** The CI server knows nothing about your laptop.
 > Which step gives it a copy of your code, and which step gives it pytest?
 
 ### Part 2: Break it in a pull request
@@ -198,7 +198,7 @@ git switch main
 git pull
 ```
 
-> **Answer in your notes:** Which test caught the bug, and what value did it
+> **Studio Question 2:** Which test caught the bug, and what value did it
 > get? Was that test written to catch this exact mistake?
 
 ### Part 3: Fix a real bug, test first
@@ -231,7 +231,7 @@ your change.
 **5.** Run `python -m pytest` locally first. Expect **7 passed, 7 skipped**.
 Commit, push to the same branch, and watch the PR turn green. Merge it.
 
-> **Answer in your notes:** Why push the failing test before the fix, instead
+> **Studio Question 3:** Why push the failing test before the fix, instead
 > of both in one commit? What does this test protect you from later?
 
 ### Part 4: "Works on my machine"
@@ -283,7 +283,7 @@ Your laptop still says everything passes. Run `git status` to see why.
 
 **7.** Add and commit `units.py`, push, and watch the PR turn green. Merge it.
 
-> **Answer in your notes:** Name one other thing that could make tests pass on
+> **Studio Question 4:** Name one other thing that could make tests pass on
 > your laptop but fail on the build server. (Hint: what if you had
 > `pip install`ed a package that isn't in `requirements.txt`?)
 
